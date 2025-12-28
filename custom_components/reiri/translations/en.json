@@ -1,0 +1,23 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect to Reiri Controller",
+                "description": "Enter your Reiri controller details",
+                "data": {
+                    "ip_address": "IP Address",
+                    "username": "Username",
+                    "password": "Password"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to controller",
+            "invalid_auth": "Invalid username or password",
+            "unknown": "Unexpected error occurred"
+        },
+        "abort": {
+            "already_configured": "Controller is already configured"
+        }
+    }
+}
