@@ -118,7 +118,8 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
             elif val == "M": self._attr_fan_mode = "medium"
             elif val == "MH": self._attr_fan_mode = "medium-high"
             elif val == "H": self._attr_fan_mode = "high"
-            else: self._attr_fan_mode = val.lower()
+            elif val: self._attr_fan_mode = val.lower()
+            else: self._attr_fan_mode = None
 
         # HVAC Modes List
         modes = [HVACMode.OFF]
