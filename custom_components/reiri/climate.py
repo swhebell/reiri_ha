@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .entity import ReiriEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,30 +54,16 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class ReiriClimate(CoordinatorEntity, ClimateEntity):
+class ReiriClimate(ReiriEntity, ClimateEntity):
     """Representation of a Reiri Climate Device."""
 
     def __init__(self, coordinator, client, point_id):
         """Initialize the climate device."""
-        super().__init__(coordinator)
-        self._client = client
-        self._point_id = point_id
-        self._attr_unique_id = point_id
+        super().__init__(coordinator, client, point_id)
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
         self._last_modification = {}
         self._update_attrs()
-
-    @property
-    def device_info(self):
-        """Return information to link this entity with the correct device."""
-        return {
-            "identifiers": {(DOMAIN, self._point_id)},
-            "name": self._attr_name,
-            "manufacturer": "Reiri",
-            "model": "Air Conditioner",
-            "via_device": (DOMAIN, "controller"),
-        }
 
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""

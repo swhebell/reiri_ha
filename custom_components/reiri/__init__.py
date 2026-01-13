@@ -12,7 +12,7 @@ from .coordinator import ReiriDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["climate"]
+PLATFORMS = ["climate", "sensor", "binary_sensor"]
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Reiri component."""
