@@ -86,6 +86,7 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
     def _update_attrs(self):
         """Update attributes from coordinator data."""
         point_data = self.coordinator.data.get(self._point_id, {})
+        _LOGGER.debug(f"DEBUG: point_data for {self._point_id}: {point_data}")
         
         # Name
         self._attr_name = point_data.get("name", self._point_id)
