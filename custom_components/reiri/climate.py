@@ -86,13 +86,14 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
     def _update_attrs(self):
         """Update attributes from coordinator data."""
         point_data = self.coordinator.data.get(self._point_id, {})
-        _LOGGER.debug(f"DEBUG: point_data for {self._point_id}: {point_data}")
+        # Debug logging removed
+
         
         # Name
         self._attr_name = point_data.get("name", self._point_id)
 
         # Current Temperature
-        val = point_data.get("val", 0)
+        val = point_data.get("temp", 0)
         try:
             self._attr_current_temperature = float(val)
         except (ValueError, TypeError):
