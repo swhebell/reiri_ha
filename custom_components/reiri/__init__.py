@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
+from homeassistant.helpers import device_registry as dr
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD, DEFAULT_PORT
 from .reiri_client import ReiriClient
 from .coordinator import ReiriDataUpdateCoordinator
@@ -42,6 +43,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
+
+    # Register the controller device
+    device_registry = dr.async_get(hass)
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, "controller")},
+        manufacturer="Reiri",
+        name="Reiri Controller",
+        model="Reiri Hub",
+        configuration_url=f"http://{ip_address}",
+    )
 
     hass.data[DOMAIN][entry.entry_id] = {
         "client": client,

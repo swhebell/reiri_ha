@@ -112,13 +112,13 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
         # Fan Mode
         if time.time() - self._last_modification.get("fan_mode", 0) > 60:
             val = point_data.get("fanstep")
-            if val == "A": self._attr_fan_mode = "Auto"
-            elif val == "L": self._attr_fan_mode = "Low"
-            elif val == "LM": self._attr_fan_mode = "Medium Low"
-            elif val == "M": self._attr_fan_mode = "Medium"
-            elif val == "MH": self._attr_fan_mode = "Medium High"
-            elif val == "H": self._attr_fan_mode = "High"
-            else: self._attr_fan_mode = val
+            if val == "A": self._attr_fan_mode = "auto"
+            elif val == "L": self._attr_fan_mode = "low"
+            elif val == "LM": self._attr_fan_mode = "medium-low"
+            elif val == "M": self._attr_fan_mode = "medium"
+            elif val == "MH": self._attr_fan_mode = "medium-high"
+            elif val == "H": self._attr_fan_mode = "high"
+            else: self._attr_fan_mode = val.lower()
 
         # HVAC Modes List
         modes = [HVACMode.OFF]
@@ -134,19 +134,19 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
         fan_caps = point_data.get("fanstep_cap", {})
         fan_modes = []
         if fan_caps.get("A"):
-            fan_modes.append("Auto")
+            fan_modes.append("auto")
             
         steps = fan_caps.get("S", 0)
         if steps == 2:
-            fan_modes.extend(["Low", "High"])
+            fan_modes.extend(["low", "high"])
         elif steps == 3:
-            fan_modes.extend(["Low", "Medium", "High"])
+            fan_modes.extend(["low", "medium", "high"])
         elif steps == 5:
-            fan_modes.extend(["Low", "Medium Low", "Medium", "Medium High", "High"])
+            fan_modes.extend(["low", "medium-low", "medium", "medium-high", "high"])
         else:
-            if steps >= 1: fan_modes.append("Low")
-            if steps >= 2: fan_modes.append("High")
-            if steps >= 3: fan_modes.append("Medium")
+            if steps >= 1: fan_modes.append("low")
+            if steps >= 2: fan_modes.append("high")
+            if steps >= 3: fan_modes.append("medium")
         self._attr_fan_modes = fan_modes
 
     async def async_set_temperature(self, **kwargs):
@@ -199,12 +199,12 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
 
         # Map HA mode to Reiri string
         val = "A"
-        if fan_mode == "Low": val = "L"
-        elif fan_mode == "Medium Low": val = "LM"
-        elif fan_mode == "Medium": val = "M"
-        elif fan_mode == "Medium High": val = "MH"
-        elif fan_mode == "High": val = "H"
-        elif fan_mode == "Auto": val = "A"
+        if fan_mode == "low": val = "L"
+        elif fan_mode == "medium-low": val = "LM"
+        elif fan_mode == "medium": val = "M"
+        elif fan_mode == "medium-high": val = "MH"
+        elif fan_mode == "high": val = "H"
+        elif fan_mode == "auto": val = "A"
         
         # Fan change works as single command
         cmd = {"fanstep": val}
