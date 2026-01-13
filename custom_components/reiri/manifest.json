@@ -1,12 +1,12 @@
 {
   "domain": "reiri",
   "name": "Reiri Home",
-  "version": "1.0.0",
   "codeowners": [
     "@swhebell"
   ],
   "config_flow": true,
   "documentation": "https://github.com/swhebell/reiri_ha",
+  "issue_tracker": "https://github.com/swhebell/reiri_ha/issues",
   "requirements": [
     "websockets",
     "cryptography"
