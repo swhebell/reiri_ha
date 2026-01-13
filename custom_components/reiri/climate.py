@@ -5,14 +5,8 @@ from typing import Any, Dict, List, Optional
 
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
-    HVAC_MODE_OFF,
-    HVAC_MODE_COOL,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_FAN_ONLY,
-    HVAC_MODE_DRY,
-    HVAC_MODE_AUTO,
-    SUPPORT_TARGET_TEMPERATURE,
-    SUPPORT_FAN_MODE,
+    HVACMode,
+    ClimateEntityFeature,
 )
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS
 from homeassistant.config_entries import ConfigEntry
@@ -25,12 +19,13 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 # Map Reiri modes to HA modes
+# Map Reiri modes to HA modes
 REIRI_TO_HA_MODE = {
-    "C": HVAC_MODE_COOL,
-    "H": HVAC_MODE_HEAT,
-    "F": HVAC_MODE_FAN_ONLY,
-    "D": HVAC_MODE_DRY,
-    "A": HVAC_MODE_AUTO,
+    "C": HVACMode.COOL,
+    "H": HVACMode.HEAT,
+    "F": HVACMode.FAN_ONLY,
+    "D": HVACMode.DRY,
+    "A": HVACMode.AUTO,
 }
 
 HA_TO_REIRI_MODE = {v: k for k, v in REIRI_TO_HA_MODE.items()}
@@ -68,7 +63,7 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         self._point_id = point_id
         self._attr_unique_id = point_id
         self._attr_temperature_unit = TEMP_CELSIUS
-        self._attr_supported_features = SUPPORT_TARGET_TEMPERATURE | SUPPORT_FAN_MODE
+        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
         self._last_modification = {}
         self._update_attrs()
 
@@ -105,10 +100,10 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         # HVAC Mode
         if time.time() - self._last_modification.get("hvac_mode", 0) > 60:
             if point_data.get("stat") == "off":
-                self._attr_hvac_mode = HVAC_MODE_OFF
+                self._attr_hvac_mode = HVACMode.OFF
             else:
                 mode = point_data.get("mode")
-                self._attr_hvac_mode = REIRI_TO_HA_MODE.get(mode, HVAC_MODE_AUTO)
+                self._attr_hvac_mode = REIRI_TO_HA_MODE.get(mode, HVACMode.AUTO)
 
         # Target Temperature
         if time.time() - self._last_modification.get("target_temperature", 0) > 60:
@@ -137,13 +132,13 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
             else: self._attr_fan_mode = val
 
         # HVAC Modes List
-        modes = [HVAC_MODE_OFF]
+        modes = [HVACMode.OFF]
         caps = point_data.get("mode_cap", {})
-        if caps.get("C"): modes.append(HVAC_MODE_COOL)
-        if caps.get("H"): modes.append(HVAC_MODE_HEAT)
-        if caps.get("F"): modes.append(HVAC_MODE_FAN_ONLY)
-        if caps.get("D"): modes.append(HVAC_MODE_DRY)
-        if caps.get("A"): modes.append(HVAC_MODE_AUTO)
+        if caps.get("C"): modes.append(HVACMode.COOL)
+        if caps.get("H"): modes.append(HVACMode.HEAT)
+        if caps.get("F"): modes.append(HVACMode.FAN_ONLY)
+        if caps.get("D"): modes.append(HVACMode.DRY)
+        if caps.get("A"): modes.append(HVACMode.AUTO)
         self._attr_hvac_modes = modes
 
         # Fan Modes List
@@ -196,7 +191,7 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         self._attr_hvac_mode = hvac_mode
         self.async_write_ha_state()
 
-        if hvac_mode == HVAC_MODE_OFF:
+        if hvac_mode == HVACMode.OFF:
             await self._client.operate({self._point_id: {"stat": "off"}})
         else:
             reiri_mode = HA_TO_REIRI_MODE.get(hvac_mode)
