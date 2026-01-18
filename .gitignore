@@ -1,14 +1,13 @@
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
+*.py[cod]
+*$py.class
 venv/
 .env
+
+# MacOS
 .DS_Store
-.idea/
-.vscode/
-*.log
-*.har
-debug_scripts/
+
+# Dev Tools
+dev_tools/

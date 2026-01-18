@@ -11,8 +11,20 @@ from cryptography.hazmat.primitives import padding as sym_padding
 
 _LOGGER = logging.getLogger(__name__)
 
+class ReiriError(Exception):
+    """Base exception for Reiri errors."""
+    pass
+
+class ReiriConnectionError(ReiriError):
+    """Exception for connection failures."""
+    pass
+
+class ReiriAuthError(ReiriError):
+    """Exception for authentication failures."""
+    pass
+
 class ReiriClient:
-    def __init__(self, ip, username, password, port=52001):
+    def __init__(self, ip, username, password, port=52001, timeout=10):
         self.ip = ip
         self.port = port
         self.username = username
@@ -24,57 +36,75 @@ class ReiriClient:
         self.common_key = None
         self.iv = None
         self._lock = asyncio.Lock()
+        self.timeout = timeout
 
     async def connect(self):
         """Connect to the Reiri controller."""
-        _LOGGER.debug(f"Connecting to {self.uri}")
-        self.websocket = await websockets.connect(self.uri)
-        await self._handshake()
+        _LOGGER.debug(f"Initiating connection to {self.uri}")
+        try:
+            self.websocket = await asyncio.wait_for(websockets.connect(self.uri), timeout=self.timeout)
+            _LOGGER.info(f"Connected to {self.uri}")
+            await self._handshake()
+        except (asyncio.TimeoutError, OSError) as e:
+            _LOGGER.error(f"Failed to connect to {self.uri}: {e}")
+            raise ReiriConnectionError(f"Connection failed: {e}") from e
+        except Exception as e:
+            _LOGGER.exception(f"Unexpected error during connection: {e}")
+            raise ReiriConnectionError(f"Unexpected connection error: {e}") from e
 
     async def _handshake(self):
         """Perform RSA handshake to exchange keys."""
-        # Generate RSA Key Pair
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-        public_key = self.private_key.public_key()
-        pem_pkcs1 = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.PKCS1
-        ).decode('utf-8')
+        _LOGGER.debug("Starting handshake...")
+        try:
+            # Generate RSA Key Pair
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+                backend=default_backend()
+            )
+            public_key = self.private_key.public_key()
+            pem_pkcs1 = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.PKCS1
+            ).decode('utf-8')
 
-        # Send Public Key
-        msg = [None, None, ["sys_info", pem_pkcs1]]
-        await self.websocket.send(json.dumps(msg))
+            # Send Public Key
+            msg = [None, None, ["sys_info", pem_pkcs1]]
+            await self.websocket.send(json.dumps(msg))
 
-        # Receive Common Key
-        while True:
-            response = await asyncio.wait_for(self.websocket.recv(), timeout=10)
-            data = json.loads(response)
-            if isinstance(data, list) and len(data) > 2 and isinstance(data[2], list):
-                cmd = data[2][0]
-                payload = data[2][1]
-                if cmd == "sys_info" and isinstance(payload, dict) and "common_key" in payload:
-                    ciphertext = base64.b64decode(payload["common_key"])
-                    self.common_key = self.private_key.decrypt(
-                        ciphertext,
-                        asym_padding.OAEP(
-                            mgf=asym_padding.MGF1(algorithm=hashes.SHA1()),
-                            algorithm=hashes.SHA1(),
-                            label=None
+            # Receive Common Key
+            while True:
+                response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
+                data = json.loads(response)
+                if isinstance(data, list) and len(data) > 2 and isinstance(data[2], list):
+                    cmd = data[2][0]
+                    payload = data[2][1]
+                    if cmd == "sys_info" and isinstance(payload, dict) and "common_key" in payload:
+                        ciphertext = base64.b64decode(payload["common_key"])
+                        self.common_key = self.private_key.decrypt(
+                            ciphertext,
+                            asym_padding.OAEP(
+                                mgf=asym_padding.MGF1(algorithm=hashes.SHA1()),
+                                algorithm=hashes.SHA1(),
+                                label=None
+                            )
                         )
-                    )
-                    self.iv = self.common_key
-                    _LOGGER.debug("Handshake successful, common key received")
-                    break
+                        self.iv = self.common_key
+                        _LOGGER.debug("Handshake successful, common key received")
+                        break
+        except asyncio.TimeoutError:
+            _LOGGER.error("Handshake timed out")
+            raise ReiriAuthError("Handshake timed out")
+        except Exception as e:
+            _LOGGER.error(f"Handshake failed: {e}")
+            raise ReiriAuthError(f"Handshake failed: {e}") from e
 
     async def login(self):
         """Login to the controller."""
         if not self.common_key:
-            raise Exception("Not connected or handshake failed")
+            raise ReiriAuthError("Not connected or handshake failed")
 
+        _LOGGER.debug(f"Attempting login for user: {self.username}")
         payload = {
             "name": self.username,
             "passwd": self.password,
@@ -83,29 +113,42 @@ class ReiriClient:
         # The controller expects compact JSON
         login_data = json.dumps(payload).replace(" ", "")
         
-        encrypted_payload = self._encrypt(login_data)
-        msg = ["enc", None, ["login", encrypted_payload]]
-        
-        await self.websocket.send(json.dumps(msg))
-        
-        # Wait for login response
-        while True:
-            response = await asyncio.wait_for(self.websocket.recv(), timeout=10)
-            if "login" in response:
-                data = json.loads(response)
-                if data[0] == "enc":
-                    decrypted = self._decrypt(data[2][1])
-                    resp_json = json.loads(decrypted)
-                    if resp_json.get("result") == "OK":
-                        _LOGGER.info("Login successful")
-                        return True
+        try:
+            encrypted_payload = self._encrypt(login_data)
+            msg = ["enc", None, ["login", encrypted_payload]]
+            
+            await self.websocket.send(json.dumps(msg))
+            
+            # Wait for login response
+            start_time = asyncio.get_running_loop().time()
+            while (asyncio.get_running_loop().time() - start_time) < self.timeout:
+                try:
+                    response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
+                except asyncio.TimeoutError:
+                     raise ReiriAuthError("Login response timeout")
+
+                if "login" in response:
+                    data = json.loads(response)
+                    if data[0] == "enc":
+                        decrypted = self._decrypt(data[2][1])
+                        resp_json = json.loads(decrypted)
+                        if resp_json.get("result") == "OK":
+                            _LOGGER.info("Login successful")
+                            return True
+                        else:
+                            _LOGGER.error(f"Login failed: {resp_json}")
+                            return False
                     else:
-                        _LOGGER.error(f"Login failed: {resp_json}")
-                        return False
-                else:
-                     # Should be encrypted, but handle plain just in case
-                     _LOGGER.warning(f"Received plain login response: {response}")
-                     return False
+                         _LOGGER.warning(f"Received plain login response: {response}")
+                         return False
+            
+            raise ReiriAuthError("Login timed out awaiting correct response")
+            
+        except ReiriAuthError:
+            raise
+        except Exception as e:
+            _LOGGER.error(f"Login error: {e}")
+            raise ReiriAuthError(f"Login error: {e}") from e
 
     async def ensure_connected(self):
         """Ensure that the connection is active and authenticated."""
@@ -118,12 +161,16 @@ class ReiriClient:
         try:
             await self.connect()
             if not await self.login():
-                await self.close()
-                raise Exception("Login failed during reconnection")
-        except Exception as e:
+                 await self.close()
+                 raise ReiriAuthError("Login failed during reconnection")
+        except (ReiriConnectionError, ReiriAuthError) as e:
             _LOGGER.error(f"Reconnection failed: {e}")
             await self.close()
             raise
+        except Exception as e:
+            _LOGGER.error(f"Reconnection failed with unexpected error: {e}")
+            await self.close()
+            raise ReiriConnectionError(f"Reconnection failed: {e}") from e
 
     async def get_point_list(self):
         """Get the list of points (devices)."""
@@ -131,25 +178,32 @@ class ReiriClient:
             try:
                 await self.ensure_connected()
                 return await self._get_point_list_internal()
-            except (websockets.exceptions.ConnectionClosed, BrokenPipeError):
+            except (websockets.exceptions.ConnectionClosed, BrokenPipeError, ReiriConnectionError):
                 _LOGGER.warning("Connection closed during get_point_list. Retrying...")
                 # Force close and retry once
                 await self.close()
                 await self.ensure_connected()
                 return await self._get_point_list_internal()
+            except Exception as e:
+                 _LOGGER.error(f"Error getting point list: {e}")
+                 raise
 
     async def _get_point_list_internal(self):
         msg = ["enc", None, ["mplist"]]
         await self.websocket.send(json.dumps(msg))
         
-        while True:
-            response = await asyncio.wait_for(self.websocket.recv(), timeout=10)
-            if "mplist" in response:
-                data = json.loads(response)
-                if data[0] == "enc":
-                    decrypted = self._decrypt(data[2][1])
-                    return json.loads(decrypted)
-                return None
+        try:
+            while True:
+                response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
+                if "mplist" in response:
+                    data = json.loads(response)
+                    if data[0] == "enc":
+                        decrypted = self._decrypt(data[2][1])
+                        return json.loads(decrypted)
+                    return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout waiting for point list")
+            raise ReiriConnectionError("Timeout waiting for point list")
 
     async def operate(self, command):
         """Send an operation command."""
@@ -157,12 +211,15 @@ class ReiriClient:
             try:
                 await self.ensure_connected()
                 return await self._operate_internal(command)
-            except (websockets.exceptions.ConnectionClosed, BrokenPipeError):
+            except (websockets.exceptions.ConnectionClosed, BrokenPipeError, ReiriConnectionError):
                 _LOGGER.warning("Connection closed during operate. Retrying...")
                 # Force close and retry once
                 await self.close()
                 await self.ensure_connected()
                 return await self._operate_internal(command)
+            except Exception as e:
+                 _LOGGER.error(f"Error executing operation: {e}")
+                 raise
 
     async def _operate_internal(self, command):
         # command example: {"dtatcp1:1-00004": {"stat": "on"}}
@@ -173,15 +230,19 @@ class ReiriClient:
         await self.websocket.send(json.dumps(msg))
         
         # Wait for response
-        while True:
-            response = await asyncio.wait_for(self.websocket.recv(), timeout=10)
-            if "op" in response:
-                data = json.loads(response)
-                if data[0] == "enc":
-                    decrypted = self._decrypt(data[2][1])
-                    _LOGGER.info(f"Operate response: {decrypted}")
-                    return json.loads(decrypted)
-                return None
+        try:
+            while True:
+                response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
+                if "op" in response:
+                    data = json.loads(response)
+                    if data[0] == "enc":
+                        decrypted = self._decrypt(data[2][1])
+                        _LOGGER.info(f"Operate response: {decrypted}")
+                        return json.loads(decrypted)
+                    return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout waiting for operation response")
+            raise ReiriConnectionError("Timeout waiting for operation response")
 
     def _encrypt(self, plaintext):
         """Encrypt data using AES-128-CBC."""
@@ -207,6 +268,7 @@ class ReiriClient:
         if self.websocket:
             try:
                 await self.websocket.close()
+                _LOGGER.info("Websocket connection closed")
             except Exception:
                 pass
             self.websocket = None

@@ -121,6 +121,16 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
             elif val: self._attr_fan_mode = val.lower()
             else: self._attr_fan_mode = None
 
+        # Swing/Flap Mode
+        if time.time() - self._last_modification.get("swing_mode", 0) > 60:
+            val = point_data.get("flap")
+            if val == "S":
+                self._attr_swing_mode = "swing"
+            elif val is not None:
+                self._attr_swing_mode = str(val)
+            else:
+                self._attr_swing_mode = None
+
         # HVAC Modes List
         modes = [HVACMode.OFF]
         caps = point_data.get("mode_cap", {})
@@ -150,6 +160,34 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
             if steps >= 3: fan_modes.append("medium")
         self._attr_fan_modes = fan_modes
 
+        # Swing Modes List & Feature Support
+        flap_caps = point_data.get("flap_cap", {})
+        # Default to 3 if D is missing, similar to webapp, unless capabilities are totally missing
+        # If flap_caps is empty, it might mean no info, assume supported or not?
+        # Webapp says: if !isEmpty(point_info) -> check flap_cap.D.
+        
+        # We will assume supported if flap_cap is present or D is not 0.
+        flap_steps = flap_caps.get("D", 3)
+        
+        if flap_steps == 0:
+            # No flap control supported
+            self._attr_supported_features &= ~ClimateEntityFeature.SWING_MODE
+            self._attr_swing_modes = None
+            self._attr_swing_mode = None
+        else:
+            # Flap control supported
+            self._attr_supported_features |= ClimateEntityFeature.SWING_MODE
+            
+            swing_modes = ["swing"]
+            # Explicit positions 0-4 (or up to steps?)
+            # Webapp hardcodes logic for S -> 4 -> 3 -> 2 -> 1 -> 0.
+            # We will expose 0 to 4. 
+            # Note: The webapp logic cycles 4 down to 0 regardless of 'flap_steps' 
+            # unless 'flap_steps' determines the range, but the loop just checks 'steps' for S toggle.
+            # We will err on the side of exposing standard 5 steps if supported.
+            swing_modes.extend([str(i) for i in range(5)]) 
+            self._attr_swing_modes = swing_modes
+
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
@@ -162,16 +200,9 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
         self.async_write_ha_state()
         
         point_data = self.coordinator.data.get(self._point_id, {})
-        mode = point_data.get("mode")
-        key = "sp"
-        
-        if mode == "C":
-            key = "csp"
-        elif mode == "H":
-            key = "hsp"
-            
-        # Reiri expects float value as string, e.g. "24.0"
-        await self._client.operate({self._point_id: {key: str(float(temperature))}})
+        # Reiri expects float value as number, e.g. 24.0
+        # Use 'sp' as the generic setpoint key, independent of mode
+        await self._client.operate({self._point_id: {"sp": float(temperature)}})
         # Do NOT refresh immediately due to latency
 
     async def async_set_hvac_mode(self, hvac_mode):
@@ -211,3 +242,24 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
         cmd = {"fanstep": val}
         await self._client.operate({self._point_id: cmd})
         # Do NOT refresh immediately due to latency
+
+    async def async_set_swing_mode(self, swing_mode):
+        """Set new target swing operation."""
+        # Optimistic update
+        self._last_modification["swing_mode"] = time.time()
+        self._attr_swing_mode = swing_mode
+        self.async_write_ha_state()
+
+        val = "S"
+        if swing_mode == "swing":
+            val = "S"
+        else:
+            try:
+                # Send integer for positions
+                val = int(swing_mode)
+            except ValueError:
+                # Fallback to swing if invalid
+                val = "S"
+        
+        cmd = {"flap": val}
+        await self._client.operate({self._point_id: cmd})
