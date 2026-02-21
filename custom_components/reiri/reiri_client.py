@@ -24,7 +24,7 @@ class ReiriAuthError(ReiriError):
     pass
 
 class ReiriClient:
-    def __init__(self, ip, username, password, port=52001, timeout=10):
+    def __init__(self, ip, username, password, port=52001, timeout=30):
         self.ip = ip
         self.port = port
         self.username = username
@@ -125,7 +125,7 @@ class ReiriClient:
                 try:
                     response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
                 except asyncio.TimeoutError:
-                     raise ReiriAuthError("Login response timeout")
+                    raise ReiriAuthError("Login response timeout")
 
                 if "login" in response:
                     data = json.loads(response)
@@ -139,8 +139,8 @@ class ReiriClient:
                             _LOGGER.error(f"Login failed: {resp_json}")
                             return False
                     else:
-                         _LOGGER.warning(f"Received plain login response: {response}")
-                         return False
+                        _LOGGER.warning(f"Received plain login response: {response}")
+                        return False
             
             raise ReiriAuthError("Login timed out awaiting correct response")
             
@@ -152,7 +152,7 @@ class ReiriClient:
 
     async def ensure_connected(self):
         """Ensure that the connection is active and authenticated."""
-        if self.websocket and self.websocket.close_code is None:
+        if self.websocket and not self.websocket.closed:
             return
 
         _LOGGER.info("Connection lost or not established. Reconnecting...")
@@ -178,15 +178,12 @@ class ReiriClient:
             try:
                 await self.ensure_connected()
                 return await self._get_point_list_internal()
-            except (websockets.exceptions.ConnectionClosed, BrokenPipeError, ReiriConnectionError):
-                _LOGGER.warning("Connection closed during get_point_list. Retrying...")
+            except (websockets.exceptions.ConnectionClosed, BrokenPipeError):
+                _LOGGER.debug("Connection closed during get_point_list. Retrying...")
                 # Force close and retry once
                 await self.close()
                 await self.ensure_connected()
                 return await self._get_point_list_internal()
-            except Exception as e:
-                 _LOGGER.error(f"Error getting point list: {e}")
-                 raise
 
     async def _get_point_list_internal(self):
         msg = ["enc", None, ["mplist"]]
@@ -202,7 +199,7 @@ class ReiriClient:
                         return json.loads(decrypted)
                     return None
         except asyncio.TimeoutError:
-            _LOGGER.error("Timeout waiting for point list")
+            _LOGGER.debug("Timeout waiting for point list")
             raise ReiriConnectionError("Timeout waiting for point list")
 
     async def operate(self, command):
@@ -211,20 +208,17 @@ class ReiriClient:
             try:
                 await self.ensure_connected()
                 return await self._operate_internal(command)
-            except (websockets.exceptions.ConnectionClosed, BrokenPipeError, ReiriConnectionError):
-                _LOGGER.warning("Connection closed during operate. Retrying...")
+            except (websockets.exceptions.ConnectionClosed, BrokenPipeError):
+                _LOGGER.debug("Connection closed during operate. Retrying...")
                 # Force close and retry once
                 await self.close()
                 await self.ensure_connected()
                 return await self._operate_internal(command)
-            except Exception as e:
-                 _LOGGER.error(f"Error executing operation: {e}")
-                 raise
 
     async def _operate_internal(self, command):
         # command example: {"dtatcp1:1-00004": {"stat": "on"}}
         cmd_str = json.dumps(command).replace(" ", "")
-        _LOGGER.info(f"Sending command: {cmd_str}")
+        _LOGGER.debug(f"Sending command: {cmd_str}")
         encrypted = self._encrypt(cmd_str)
         msg = ["enc", None, ["op", encrypted]]
         await self.websocket.send(json.dumps(msg))
@@ -237,11 +231,11 @@ class ReiriClient:
                     data = json.loads(response)
                     if data[0] == "enc":
                         decrypted = self._decrypt(data[2][1])
-                        _LOGGER.info(f"Operate response: {decrypted}")
+                        _LOGGER.debug(f"Operate response: {decrypted}")
                         return json.loads(decrypted)
                     return None
         except asyncio.TimeoutError:
-            _LOGGER.error("Timeout waiting for operation response")
+            _LOGGER.debug("Timeout waiting for operation response")
             raise ReiriConnectionError("Timeout waiting for operation response")
 
     def _encrypt(self, plaintext):

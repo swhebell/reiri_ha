@@ -12,14 +12,11 @@ from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-
 from .const import DOMAIN
 from .entity import ReiriEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-# Map Reiri modes to HA modes
 # Map Reiri modes to HA modes
 REIRI_TO_HA_MODE = {
     "C": HVACMode.COOL,
@@ -185,7 +182,7 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
             # Note: The webapp logic cycles 4 down to 0 regardless of 'flap_steps' 
             # unless 'flap_steps' determines the range, but the loop just checks 'steps' for S toggle.
             # We will err on the side of exposing standard 5 steps if supported.
-            swing_modes.extend([str(i) for i in range(5)]) 
+            swing_modes.extend([str(i) for i in range(flap_steps)])
             self._attr_swing_modes = swing_modes
 
     async def async_set_temperature(self, **kwargs):
