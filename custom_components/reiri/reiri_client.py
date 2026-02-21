@@ -150,9 +150,20 @@ class ReiriClient:
             _LOGGER.error(f"Login error: {e}")
             raise ReiriAuthError(f"Login error: {e}") from e
 
+    def _is_websocket_open(self):
+        """Check if the websocket is open, handling different websockets API versions."""
+        try:
+            return not self.websocket.closed
+        except AttributeError:
+            pass
+        try:
+            return self.websocket.close_code is None
+        except AttributeError:
+            return False  # unknown state, assume closed
+
     async def ensure_connected(self):
         """Ensure that the connection is active and authenticated."""
-        if self.websocket and not self.websocket.closed:
+        if self.websocket and self._is_websocket_open():
             return
 
         _LOGGER.info("Connection lost or not established. Reconnecting...")
