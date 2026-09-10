@@ -2,8 +2,11 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![version](https://img.shields.io/github/v/release/swhebell/reiri_ha)](https://github.com/swhebell/reiri_ha)
+[![validate](https://github.com/swhebell/reiri_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/swhebell/reiri_ha/actions/workflows/validate.yml)
 
-This integration allows for local control of Reiri Home air conditioners via Home Assistant.
+Local control of **Daikin VRV / VRF air conditioners** through a **Reiri Home** hub, from Home Assistant. Each indoor unit becomes a climate entity with mode, setpoint, fan speed and swing control, plus sensors for outdoor temperature, filter status and compressor state. Everything runs over your local network; no cloud account or internet connection is needed.
+
+If you have a Reiri hub (Daikin's Reiri Home controller) talking to your VRV system, this integration lets you control every zone from Home Assistant.
 
 ## How it Works
 
@@ -15,7 +18,7 @@ The integration establishes a persistent WebSocket connection to the Reiri contr
 *   **Auto-Discovery**: Automatically detects connected AC units.
 *   **Optimistic State Updates**: The Reiri hardware can be slow to acknowledge commands (latency >60s). This integration updates the Home Assistant UI immediately upon user action to effectively manage this latency.
 *   **Fan & Mode Control**: Supports standard operating modes and unit-specific fan speeds.
-*   **Tested Hardware**: Verified on a **Daikin VRV** setup. Compatibility with other models is not guaranteed.
+*   **Tested Hardware**: Verified on a **Daikin VRV** setup with nine indoor units. Compatibility with other Reiri-connected models is not guaranteed. If it works (or doesn't) on your hardware, please say so in [Discussions](https://github.com/swhebell/reiri_ha/discussions) so the compatibility list can grow.
 
 ## Installation
 
