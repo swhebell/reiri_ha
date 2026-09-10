@@ -53,6 +53,11 @@ If this integration does not meet your requirements, the following alternatives 
 
 ## Changelog
 
+### 1.2.4
+*   Add a brand icon. Home Assistant 2026.3 and later shows it on the integration and device pages.
+*   Pass hassfest and HACS validation (sorted manifest keys, config-entry-only schema declaration). Validation now runs in GitHub Actions on every push.
+*   Add a GitHub issue template and enable Discussions.
+
 ### 1.2.3
 *   Reject adding the same controller twice. Existing entries adopt the controller IP as their unique ID on next start.
 *   Raise an authentication failure (with a Re-authenticate flow) when the controller rejects the stored credentials, instead of silently failing setup. The controller's 3-second login block after a failed attempt is treated as transient and retried.
