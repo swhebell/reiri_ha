@@ -23,6 +23,12 @@ class ReiriAuthError(ReiriError):
     """Exception for authentication failures."""
     pass
 
+# Login result codes returned by the controller (see vendor webapp Controller.js).
+LOGIN_OK = "OK"
+LOGIN_BAD_CREDENTIALS = ("wrong_passwd", "no_acname")
+LOGIN_BLOCKED = "block_period"  # 3 second lockout after a failed attempt
+
+
 class ReiriClient:
     def __init__(self, ip, username, password, port=52001, timeout=30):
         self.ip = ip
@@ -37,6 +43,9 @@ class ReiriClient:
         self.iv = None
         self._lock = asyncio.Lock()
         self.timeout = timeout
+        # Result code from the most recent login reply, e.g. "OK", "wrong_passwd",
+        # "block_period". None if no reply has been received yet.
+        self.last_login_result = None
 
     async def connect(self):
         """Connect to the Reiri controller."""
@@ -155,15 +164,23 @@ class ReiriClient:
             except asyncio.TimeoutError:
                 raise ReiriAuthError("Login response timeout")
 
-            if data[0] != "enc":
-                _LOGGER.warning("Received plain login response: %s", data)
-                return False
+            payload = self._payload(data)
+            if data[0] == "enc":
+                resp_json = json.loads(self._decrypt(payload))
+            else:
+                # The controller answers a rejected login in plaintext,
+                # e.g. [null, null, ["login", {"result": "wrong_passwd"}]].
+                resp_json = payload if isinstance(payload, dict) else {"result": payload}
 
-            resp_json = json.loads(self._decrypt(self._payload(data)))
-            if resp_json.get("result") == "OK":
+            result = resp_json.get("result")
+            self.last_login_result = result if isinstance(result, str) else str(resp_json)
+
+            # Only an encrypted "OK" is ever treated as success.
+            if data[0] == "enc" and result == LOGIN_OK:
                 _LOGGER.info("Login successful")
                 return True
-            _LOGGER.error("Login failed: %s", resp_json)
+
+            _LOGGER.error("Login rejected by controller: %s", self.last_login_result)
             return False
 
         except ReiriAuthError:

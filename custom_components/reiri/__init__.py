@@ -8,7 +8,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 from homeassistant.helpers import device_registry as dr
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD, DEFAULT_PORT
-from .reiri_client import ReiriAuthError, ReiriClient
+from .reiri_client import LOGIN_BAD_CREDENTIALS, ReiriAuthError, ReiriClient
 from .coordinator import ReiriDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,7 +52,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if not login_ok:
         await client.close()
-        raise ConfigEntryAuthFailed("Reiri controller rejected the credentials")
+        result = client.last_login_result
+        if result in LOGIN_BAD_CREDENTIALS:
+            raise ConfigEntryAuthFailed(f"Reiri controller rejected the credentials ({result})")
+        # e.g. "block_period": the hub blocks logins for a few seconds after a
+        # failed attempt. Not a credential problem, so let HA retry.
+        raise ConfigEntryNotReady(f"Reiri controller refused login ({result}), will retry")
 
     # Create coordinator
     coordinator = ReiriDataUpdateCoordinator(hass, client)

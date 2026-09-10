@@ -22,7 +22,8 @@
         "error": {
             "cannot_connect": "Failed to connect to controller",
             "invalid_auth": "Invalid username or password",
-            "unknown": "Unexpected error occurred"
+            "unknown": "Unexpected error occurred",
+            "login_blocked": "The controller is temporarily blocking logins after a failed attempt. Wait a few seconds and try again."
         },
         "abort": {
             "already_configured": "Controller is already configured",

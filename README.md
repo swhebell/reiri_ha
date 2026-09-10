@@ -52,7 +52,7 @@ If this integration does not meet your requirements, the following alternatives 
 
 ### 1.2.3
 *   Reject adding the same controller twice. Existing entries adopt the controller IP as their unique ID on next start.
-*   Raise an authentication failure (with a Re-authenticate flow) when the controller rejects the stored credentials, instead of silently failing setup.
+*   Raise an authentication failure (with a Re-authenticate flow) when the controller rejects the stored credentials, instead of silently failing setup. The controller's 3-second login block after a failed attempt is treated as transient and retried.
 *   Report current and target temperature as unknown, rather than 0.0, when the controller does not provide a value.
 *   Match controller replies by parsed command name instead of substring search on the raw message, so unsolicited pushes cannot be mistaken for a reply.
 

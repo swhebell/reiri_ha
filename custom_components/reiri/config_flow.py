@@ -8,9 +8,14 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD
 from .const import DOMAIN, DEFAULT_PORT
-from .reiri_client import ReiriClient
+from .reiri_client import LOGIN_BLOCKED, ReiriClient
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class LoginBlocked(Exception):
+    """The controller is temporarily blocking logins after a failed attempt."""
+
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -31,8 +36,9 @@ REAUTH_SCHEMA = vol.Schema(
 async def _validate_input(ip_address: str, username: str, password: str) -> None:
     """Validate that we can connect and log in with the given credentials.
 
-    Raises ConnectionError if the controller cannot be reached and
-    PermissionError if the credentials are rejected.
+    Raises ConnectionError if the controller cannot be reached, PermissionError
+    if the credentials are rejected and LoginBlocked if the controller is in its
+    short lockout period after a failed attempt.
     """
     client = ReiriClient(ip_address, username, password, DEFAULT_PORT)
 
@@ -44,8 +50,10 @@ async def _validate_input(ip_address: str, username: str, password: str) -> None
 
     try:
         if not await client.login():
+            if client.last_login_result == LOGIN_BLOCKED:
+                raise LoginBlocked
             raise PermissionError("Login failed")
-    except PermissionError:
+    except (PermissionError, LoginBlocked):
         raise
     except Exception as e:
         _LOGGER.error("Login error: %s", e)
@@ -78,6 +86,8 @@ class ReiriConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except PermissionError:
                 errors["base"] = "invalid_auth"
+            except LoginBlocked:
+                errors["base"] = "login_blocked"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -109,6 +119,8 @@ class ReiriConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except PermissionError:
                 errors["base"] = "invalid_auth"
+            except LoginBlocked:
+                errors["base"] = "login_blocked"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
