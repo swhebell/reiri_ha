@@ -28,6 +28,17 @@ REIRI_TO_HA_MODE = {
 
 HA_TO_REIRI_MODE = {v: k for k, v in REIRI_TO_HA_MODE.items()}
 
+
+def _to_float(value: Any) -> Optional[float]:
+    """Convert a hub value to float, returning None when missing or unparseable."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -77,12 +88,8 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
         # Name
         self._attr_name = point_data.get("name", self._point_id)
 
-        # Current Temperature
-        val = point_data.get("temp", 0)
-        try:
-            self._attr_current_temperature = float(val)
-        except (ValueError, TypeError):
-            self._attr_current_temperature = 0.0
+        # Current Temperature (None -> "unknown" in HA when the hub reports nothing)
+        self._attr_current_temperature = _to_float(point_data.get("temp"))
 
         # HVAC Mode
         if time.time() - self._last_modification.get("hvac_mode", 0) > 60:
@@ -96,16 +103,12 @@ class ReiriClimate(ReiriEntity, ClimateEntity):
         if time.time() - self._last_modification.get("target_temperature", 0) > 60:
             mode = point_data.get("mode")
             if mode == "C":
-                sp = point_data.get("csp", 0)
+                sp = point_data.get("csp")
             elif mode == "H":
-                sp = point_data.get("hsp", 0)
+                sp = point_data.get("hsp")
             else:
-                sp = point_data.get("sp", 0)
-            
-            try:
-                self._attr_target_temperature = float(sp)
-            except (ValueError, TypeError):
-                self._attr_target_temperature = 0.0
+                sp = point_data.get("sp")
+            self._attr_target_temperature = _to_float(sp)
 
         # Fan Mode
         if time.time() - self._last_modification.get("fan_mode", 0) > 60:

@@ -9,15 +9,25 @@
                     "username": "Username",
                     "password": "Password"
                 }
+            },
+            "reauth_confirm": {
+                "title": "Re-authenticate with Reiri Controller",
+                "description": "The Reiri controller at {ip_address} rejected the stored credentials. Enter the current username and password.",
+                "data": {
+                    "username": "Username",
+                    "password": "Password"
+                }
             }
         },
         "error": {
             "cannot_connect": "Failed to connect to controller",
             "invalid_auth": "Invalid username or password",
-            "unknown": "Unexpected error occurred"
+            "unknown": "Unexpected error occurred",
+            "login_blocked": "The controller is temporarily blocking logins after a failed attempt. Wait a few seconds and try again."
         },
         "abort": {
-            "already_configured": "Controller is already configured"
+            "already_configured": "Controller is already configured",
+            "reauth_successful": "Re-authentication was successful"
         }
     }
 }

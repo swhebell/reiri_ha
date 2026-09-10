@@ -4,11 +4,11 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 from homeassistant.helpers import device_registry as dr
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD, DEFAULT_PORT
-from .reiri_client import ReiriClient
+from .reiri_client import LOGIN_BAD_CREDENTIALS, ReiriAuthError, ReiriClient
 from .coordinator import ReiriDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,16 +27,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     username = entry.data[CONF_USERNAME]
     password = entry.data[CONF_PASSWORD]
 
+    # Entries created before 1.2.3 have no unique ID; adopt the IP so that
+    # duplicate controllers are rejected by the config flow.
+    if entry.unique_id is None:
+        hass.config_entries.async_update_entry(entry, unique_id=ip_address)
+
     client = ReiriClient(ip_address, username, password, DEFAULT_PORT)
 
     try:
         await client.connect()
-        if not await client.login():
-            _LOGGER.error("Failed to login to Reiri controller")
-            return False
     except Exception as e:
-        _LOGGER.error(f"Error connecting to Reiri controller: {e}")
+        _LOGGER.error("Error connecting to Reiri controller: %s", e)
         raise ConfigEntryNotReady from e
+
+    try:
+        login_ok = await client.login()
+    except ReiriAuthError as e:
+        await client.close()
+        raise ConfigEntryNotReady(f"Login error: {e}") from e
+    except Exception as e:
+        await client.close()
+        _LOGGER.error("Error logging in to Reiri controller: %s", e)
+        raise ConfigEntryNotReady from e
+
+    if not login_ok:
+        await client.close()
+        result = client.last_login_result
+        if result in LOGIN_BAD_CREDENTIALS:
+            raise ConfigEntryAuthFailed(f"Reiri controller rejected the credentials ({result})")
+        # e.g. "block_period": the hub blocks logins for a few seconds after a
+        # failed attempt. Not a credential problem, so let HA retry.
+        raise ConfigEntryNotReady(f"Reiri controller refused login ({result}), will retry")
 
     # Create coordinator
     coordinator = ReiriDataUpdateCoordinator(hass, client)

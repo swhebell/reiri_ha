@@ -23,6 +23,12 @@ class ReiriAuthError(ReiriError):
     """Exception for authentication failures."""
     pass
 
+# Login result codes returned by the controller (see vendor webapp Controller.js).
+LOGIN_OK = "OK"
+LOGIN_BAD_CREDENTIALS = ("wrong_passwd", "no_acname")
+LOGIN_BLOCKED = "block_period"  # 3 second lockout after a failed attempt
+
+
 class ReiriClient:
     def __init__(self, ip, username, password, port=52001, timeout=30):
         self.ip = ip
@@ -37,6 +43,9 @@ class ReiriClient:
         self.iv = None
         self._lock = asyncio.Lock()
         self.timeout = timeout
+        # Result code from the most recent login reply, e.g. "OK", "wrong_passwd",
+        # "block_period". None if no reply has been received yet.
+        self.last_login_result = None
 
     async def connect(self):
         """Connect to the Reiri controller."""
@@ -99,6 +108,36 @@ class ReiriClient:
             _LOGGER.error(f"Handshake failed: {e}")
             raise ReiriAuthError(f"Handshake failed: {e}") from e
 
+    async def _recv_command(self, expected):
+        """Wait for the next message whose command matches ``expected``.
+
+        Messages are shaped ``[param1, param2, [command, payload]]``. Anything
+        that does not parse or names a different command (e.g. unsolicited
+        pushes) is skipped. Returns the parsed message; raises
+        asyncio.TimeoutError if nothing matching arrives within ``timeout``.
+        """
+        while True:
+            response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
+            try:
+                data = json.loads(response)
+            except (TypeError, ValueError):
+                _LOGGER.debug("Ignoring non-JSON message from controller")
+                continue
+            if (
+                isinstance(data, list)
+                and len(data) > 2
+                and isinstance(data[2], list)
+                and data[2]
+                and data[2][0] == expected
+            ):
+                return data
+            _LOGGER.debug("Ignoring unexpected message while waiting for %r", expected)
+
+    @staticmethod
+    def _payload(data):
+        """Return the payload element of a parsed message, or None."""
+        return data[2][1] if len(data[2]) > 1 else None
+
     async def login(self):
         """Login to the controller."""
         if not self.common_key:
@@ -120,30 +159,30 @@ class ReiriClient:
             await self.websocket.send(json.dumps(msg))
             
             # Wait for login response
-            start_time = asyncio.get_running_loop().time()
-            while (asyncio.get_running_loop().time() - start_time) < self.timeout:
-                try:
-                    response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
-                except asyncio.TimeoutError:
-                    raise ReiriAuthError("Login response timeout")
+            try:
+                data = await self._recv_command("login")
+            except asyncio.TimeoutError:
+                raise ReiriAuthError("Login response timeout")
 
-                if "login" in response:
-                    data = json.loads(response)
-                    if data[0] == "enc":
-                        decrypted = self._decrypt(data[2][1])
-                        resp_json = json.loads(decrypted)
-                        if resp_json.get("result") == "OK":
-                            _LOGGER.info("Login successful")
-                            return True
-                        else:
-                            _LOGGER.error(f"Login failed: {resp_json}")
-                            return False
-                    else:
-                        _LOGGER.warning(f"Received plain login response: {response}")
-                        return False
-            
-            raise ReiriAuthError("Login timed out awaiting correct response")
-            
+            payload = self._payload(data)
+            if data[0] == "enc":
+                resp_json = json.loads(self._decrypt(payload))
+            else:
+                # The controller answers a rejected login in plaintext,
+                # e.g. [null, null, ["login", {"result": "wrong_passwd"}]].
+                resp_json = payload if isinstance(payload, dict) else {"result": payload}
+
+            result = resp_json.get("result")
+            self.last_login_result = result if isinstance(result, str) else str(resp_json)
+
+            # Only an encrypted "OK" is ever treated as success.
+            if data[0] == "enc" and result == LOGIN_OK:
+                _LOGGER.info("Login successful")
+                return True
+
+            _LOGGER.error("Login rejected by controller: %s", self.last_login_result)
+            return False
+
         except ReiriAuthError:
             raise
         except Exception as e:
@@ -201,14 +240,10 @@ class ReiriClient:
         await self.websocket.send(json.dumps(msg))
         
         try:
-            while True:
-                response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
-                if "mplist" in response:
-                    data = json.loads(response)
-                    if data[0] == "enc":
-                        decrypted = self._decrypt(data[2][1])
-                        return json.loads(decrypted)
-                    return None
+            data = await self._recv_command("mplist")
+            if data[0] == "enc":
+                return json.loads(self._decrypt(self._payload(data)))
+            return None
         except asyncio.TimeoutError:
             _LOGGER.debug("Timeout waiting for point list")
             raise ReiriConnectionError("Timeout waiting for point list")
@@ -236,15 +271,12 @@ class ReiriClient:
         
         # Wait for response
         try:
-            while True:
-                response = await asyncio.wait_for(self.websocket.recv(), timeout=self.timeout)
-                if "op" in response:
-                    data = json.loads(response)
-                    if data[0] == "enc":
-                        decrypted = self._decrypt(data[2][1])
-                        _LOGGER.debug(f"Operate response: {decrypted}")
-                        return json.loads(decrypted)
-                    return None
+            data = await self._recv_command("op")
+            if data[0] == "enc":
+                decrypted = self._decrypt(self._payload(data))
+                _LOGGER.debug("Operate response: %s", decrypted)
+                return json.loads(decrypted)
+            return None
         except asyncio.TimeoutError:
             _LOGGER.debug("Timeout waiting for operation response")
             raise ReiriConnectionError("Timeout waiting for operation response")
