@@ -1,0 +1,48 @@
+name: Bug report
+description: Something is not working with the Reiri integration
+labels: [bug]
+body:
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.9.1"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      description: Shown in HACS, or the "version" field in custom_components/reiri/manifest.json
+      placeholder: "1.2.3"
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: AC hardware
+      description: Indoor/outdoor unit model and how the Reiri hub is connected
+      placeholder: "Daikin VRV, 9 indoor units, Reiri hub via DIII-Net"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Settings > System > Logs, filtered on "reiri". For protocol issues, enable debug logging first
+        (Settings > Devices & services > Reiri > Enable debug logging), reproduce, then disable and attach the download.
+        Remove usernames and passwords before posting.
+      render: text
+  - type: textarea
+    id: point_data
+    attributes:
+      label: Point data (if the issue is a wrong or missing value)
+      description: The entry for the affected unit from the debug log's point list, with the name changed if you prefer.
+      render: json
