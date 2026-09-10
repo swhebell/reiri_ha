@@ -48,6 +48,25 @@ If this integration does not meet your requirements, the following alternatives 
 *   **Modbus via DCPA01**: The Daikin DCPA01 is an official DIII-Net to Modbus RTU adapter. It may be possible to interface with this adapter using a Modbus USB stick or Ethernet gateway.
 *   **Direct DIII-Net Connection**: The underlying F1/F2 bus protocol is proprietary. Community projects (e.g., P1P2Serial) exist that attempt to reverse-engineer this protocol, though this approach requires custom hardware and carries higher implementation complexity.
 
+## Changelog
+
+### 1.2.2
+*   Use `via_device_id` instead of the deprecated `via_device` key when linking AC unit devices to the controller. Fixes the deprecation warning logged by Home Assistant 2026.8 and later (support is removed in 2027.8).
+
+### 1.2.1
+*   Handle the websockets `ClientConnection` API missing the `.closed` attribute.
+
+### 1.2
+*   Reduce log spam and improve reliability under a slow controller.
+
+### 1.1.0
+*   Add swing/flap control.
+*   Fix temperature setting.
+*   Improve error handling.
+
+### 1.0.9
+*   Fix `AttributeError` when `fanstep` is missing from point data.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) for details.

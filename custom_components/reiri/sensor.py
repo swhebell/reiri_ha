@@ -21,6 +21,7 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
     client = data["client"]
+    controller_device_id = data["controller_device_id"]
 
     if not coordinator.data:
         return
@@ -28,7 +29,7 @@ async def async_setup_entry(
     entities = []
     for point_id, point_data in coordinator.data.items():
         if "otemp" in point_data:
-            entities.append(ReiriOutdoorTempSensor(coordinator, client, point_id))
+            entities.append(ReiriOutdoorTempSensor(coordinator, client, point_id, controller_device_id))
 
     async_add_entities(entities)
 
@@ -40,9 +41,9 @@ class ReiriOutdoorTempSensor(ReiriEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
-    def __init__(self, coordinator, client, point_id):
+    def __init__(self, coordinator, client, point_id, controller_device_id):
         """Initialize."""
-        super().__init__(coordinator, client, point_id)
+        super().__init__(coordinator, client, point_id, controller_device_id)
         # Use point_id + suffix for unique ID
         self._attr_unique_id = f"{point_id}_otemp"
         self._attr_name = f"{coordinator.data[point_id].get('name', point_id)} Outdoor Temperature"

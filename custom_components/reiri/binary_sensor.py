@@ -20,6 +20,7 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
     client = data["client"]
+    controller_device_id = data["controller_device_id"]
 
     if not coordinator.data:
         return
@@ -27,10 +28,10 @@ async def async_setup_entry(
     entities = []
     for point_id, point_data in coordinator.data.items():
         if "filter" in point_data:
-            entities.append(ReiriFilterBinarySensor(coordinator, client, point_id))
+            entities.append(ReiriFilterBinarySensor(coordinator, client, point_id, controller_device_id))
         
         if "thermo" in point_data:
-            entities.append(ReiriCompressorBinarySensor(coordinator, client, point_id))
+            entities.append(ReiriCompressorBinarySensor(coordinator, client, point_id, controller_device_id))
 
     async_add_entities(entities)
 
@@ -40,9 +41,9 @@ class ReiriFilterBinarySensor(ReiriEntity, BinarySensorEntity):
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
-    def __init__(self, coordinator, client, point_id):
+    def __init__(self, coordinator, client, point_id, controller_device_id):
         """Initialize."""
-        super().__init__(coordinator, client, point_id)
+        super().__init__(coordinator, client, point_id, controller_device_id)
         self._attr_unique_id = f"{point_id}_filter"
         self._attr_name = f"{coordinator.data[point_id].get('name', point_id)} Filter"
 
@@ -59,9 +60,9 @@ class ReiriCompressorBinarySensor(ReiriEntity, BinarySensorEntity):
 
     _attr_device_class = BinarySensorDeviceClass.RUNNING
 
-    def __init__(self, coordinator, client, point_id):
+    def __init__(self, coordinator, client, point_id, controller_device_id):
         """Initialize."""
-        super().__init__(coordinator, client, point_id)
+        super().__init__(coordinator, client, point_id, controller_device_id)
         self._attr_unique_id = f"{point_id}_compressor"
         self._attr_name = f"{coordinator.data[point_id].get('name', point_id)} Compressor"
 

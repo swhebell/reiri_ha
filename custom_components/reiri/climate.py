@@ -37,6 +37,7 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
     client = data["client"]
+    controller_device_id = data["controller_device_id"]
 
     if not coordinator.data:
         _LOGGER.error("No points found")
@@ -46,7 +47,7 @@ async def async_setup_entry(
     for point_id, point_data in coordinator.data.items():
         # Filter for HVAC units (assuming all points are climate entities for now)
         if "name" in point_data:
-            entities.append(ReiriClimate(coordinator, client, point_id))
+            entities.append(ReiriClimate(coordinator, client, point_id, controller_device_id))
 
     async_add_entities(entities)
 
@@ -54,9 +55,9 @@ async def async_setup_entry(
 class ReiriClimate(ReiriEntity, ClimateEntity):
     """Representation of a Reiri Climate Device."""
 
-    def __init__(self, coordinator, client, point_id):
+    def __init__(self, coordinator, client, point_id, controller_device_id):
         """Initialize the climate device."""
-        super().__init__(coordinator, client, point_id)
+        super().__init__(coordinator, client, point_id, controller_device_id)
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
         self._last_modification = {}
