@@ -50,6 +50,12 @@ If this integration does not meet your requirements, the following alternatives 
 
 ## Changelog
 
+### 1.2.3
+*   Reject adding the same controller twice. Existing entries adopt the controller IP as their unique ID on next start.
+*   Raise an authentication failure (with a Re-authenticate flow) when the controller rejects the stored credentials, instead of silently failing setup.
+*   Report current and target temperature as unknown, rather than 0.0, when the controller does not provide a value.
+*   Match controller replies by parsed command name instead of substring search on the raw message, so unsolicited pushes cannot be mistaken for a reply.
+
 ### 1.2.2
 *   Use `via_device_id` instead of the deprecated `via_device` key when linking AC unit devices to the controller. Fixes the deprecation warning logged by Home Assistant 2026.8 and later (support is removed in 2027.8).
 
