@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD, DEFAULT_PORT
 from .reiri_client import LOGIN_BAD_CREDENTIALS, ReiriAuthError, ReiriClient
 from .coordinator import ReiriDataUpdateCoordinator
@@ -15,9 +15,8 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["climate", "sensor", "binary_sensor"]
 
-async def async_setup(hass: HomeAssistant, config: dict):
-    """Set up the Reiri component."""
-    return True
+# Configured via the UI config flow only; no YAML options.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Reiri from a config entry."""
