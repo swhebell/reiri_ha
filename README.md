@@ -81,6 +81,12 @@ If this integration does not meet your requirements, the following alternatives 
 ### 1.0.9
 *   Fix `AttributeError` when `fanstep` is missing from point data.
 
+## Development
+
+*   [docs/BACKLOG.md](docs/BACKLOG.md) - open items from the code review, by priority.
+*   [docs/RESEARCH.md](docs/RESEARCH.md) - Reiri hardware, protocol findings, other implementations and sources.
+*   A virtualenv with `homeassistant` and `pytest` lives in `venv/`. `python -m py_compile custom_components/reiri/*.py` is the minimum check; hassfest and HACS validation run in GitHub Actions on every push.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) for details.
