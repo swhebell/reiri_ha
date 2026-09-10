@@ -103,6 +103,7 @@ priority, not by area. Status as of 10 September 2026.
 ## Publicity (not code)
 
 - Reply in the June 2024 Home Assistant community thread linking the repo.
-- Post in Share your Projects and r/homeassistant (drafts exist in the session
-  history of 10 September 2026; include model numbers DCPH01, DCPH02, DCPA01).
+- Post in Share your Projects and r/homeassistant. Drafts are in the local,
+  gitignored `dev_tools/announcement_drafts.md`; include model numbers DCPH01,
+  DCPH02, DCPA01.
 - Watch hacs/default#10821 for the bot's checks and any reviewer comments.
