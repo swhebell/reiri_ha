@@ -1,17 +1,17 @@
 {
   "domain": "reiri",
   "name": "Reiri Home",
-  "version": "1.2.3",
   "codeowners": [
     "@swhebell"
   ],
   "config_flow": true,
   "documentation": "https://github.com/swhebell/reiri_ha",
+  "integration_type": "device",
+  "iot_class": "local_polling",
   "issue_tracker": "https://github.com/swhebell/reiri_ha/issues",
   "requirements": [
     "websockets",
     "cryptography"
   ],
-  "iot_class": "local_polling",
-  "integration_type": "device"
+  "version": "1.2.3"
 }
