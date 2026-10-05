@@ -53,6 +53,9 @@ If this integration does not meet your requirements, the following alternatives 
 
 ## Changelog
 
+### 1.2.5
+*   Stop listing `cryptography` in the manifest requirements. Home Assistant core already provides it, and current hassfest rejects custom integrations that list it. No change in behaviour: the integration used the copy bundled with Home Assistant before, and still does.
+
 ### 1.2.4
 *   Add a brand icon. Home Assistant 2026.3 and later shows it on the integration and device pages.
 *   Pass hassfest and HACS validation (sorted manifest keys, config-entry-only schema declaration). Validation now runs in GitHub Actions on every push.
@@ -85,7 +88,8 @@ If this integration does not meet your requirements, the following alternatives 
 
 *   [docs/BACKLOG.md](docs/BACKLOG.md) - open items from the code review, by priority.
 *   [docs/RESEARCH.md](docs/RESEARCH.md) - Reiri hardware, protocol findings, other implementations and sources.
-*   A virtualenv with `homeassistant` and `pytest` lives in `venv/`. `python -m py_compile custom_components/reiri/*.py` is the minimum check; hassfest and HACS validation run in GitHub Actions on every push.
+*   A virtualenv with `homeassistant` and `pytest` lives in `venv/`. `python -m py_compile custom_components/reiri/*.py` is the minimum check; hassfest and HACS validation run in GitHub Actions on every push and weekly (Mondays, 03:00 UTC), always against the latest upstream actions. A rule change upstream can therefore turn `main` red without any code change.
+*   Keep the `requirements` in `manifest.json` compatible with Home Assistant core: do not list packages core already depends on (for example `cryptography`), do not pin an exact version of a package core ships (use a minimum version, `>=`, instead), and keep specifiers within core's pins and constraints. Hassfest checks all three.
 
 ## License
 
