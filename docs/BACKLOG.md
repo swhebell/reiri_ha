@@ -3,7 +3,8 @@
 Open items from the September 2026 code review and the ecosystem research in
 [RESEARCH.md](RESEARCH.md). Numbers in brackets are the original review item
 numbers, kept so discussion threads stay traceable. Items are grouped by
-priority, not by area. Status as of 10 September 2026.
+priority, not by area. Status as of 10 September 2026, except the Done table
+and the HACS review note under Publicity, which were updated on 5 October 2026.
 
 ## Done
 
@@ -16,6 +17,7 @@ priority, not by area. Status as of 10 September 2026.
 | [22] hassfest and HACS validation workflows; issue template | 1.2.4 |
 | [23] Brand icon (served locally by HA 2026.3+) | 1.2.4 |
 | `via_device` to `via_device_id` migration | 1.2.2 |
+| hassfest `requirements` rule: `cryptography` dropped from the manifest (core provides it) | 1.2.5 |
 
 ## High priority
 
@@ -106,4 +108,9 @@ priority, not by area. Status as of 10 September 2026.
 - Post in Share your Projects and r/homeassistant. Drafts are in the local,
   gitignored `dev_tools/announcement_drafts.md`; include model numbers DCPH01,
   DCPH02, DCPA01.
-- Watch hacs/default#10821 for the bot's checks and any reviewer comments.
+- Watch hacs/default#10821 for the bot's checks and any reviewer comments. It
+  was open and queued as of 5 October 2026. The PR's checks clone this repo's
+  default branch and run `ghcr.io/home-assistant/hassfest:latest` on it, so
+  keep `main` green, and do not add any other file whose name ends in
+  `manifest.json` (the hassfest job requires exactly one). HACS also asks for
+  each release to be created after the validation actions have passed.
