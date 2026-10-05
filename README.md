@@ -53,6 +53,9 @@ If this integration does not meet your requirements, the following alternatives 
 
 ## Changelog
 
+### 1.2.5
+*   Stop listing `cryptography` in the manifest requirements. Home Assistant core already provides it, and current hassfest rejects custom integrations that list it. No change in behaviour: the integration used the copy bundled with Home Assistant before, and still does.
+
 ### 1.2.4
 *   Add a brand icon. Home Assistant 2026.3 and later shows it on the integration and device pages.
 *   Pass hassfest and HACS validation (sorted manifest keys, config-entry-only schema declaration). Validation now runs in GitHub Actions on every push.
